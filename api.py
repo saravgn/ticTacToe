@@ -5,15 +5,10 @@ move game logic to another file. Ideally the API will be simple, concerned
 primarily with communication to/from the API's users."""
 
 import logging
-
 import endpoints
-
 from protorpc import remote, messages
-
-from models import User, Game, Score, GameForm, GameForms, NewGameForm, MakeMoveForm, ScoreForm, ScoreForms, StringMessage, UserForm, UserForms  # noqa
-
+from models import User, Game, Score, GameForm, GameForms, NewGameForm, MakeMoveForm, ScoreForm, ScoreForms, StringMessage, UserForm, UserForms
 from utils import get_by_urlsafe, lookForWin, boolFullCurrentBoard
-
 from google.appengine.api import memcache, mail
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
@@ -55,9 +50,9 @@ class gameAPI(remote.Service):
                       http_method='GET')
     def get_user_rankings(self, request):
         """Return all Users ranked by points"""
-        users = User.query(User.matches_played > 0).fetch()
-        users = sorted(users, key=lambda x: x.score,
-                       reverse=True)
+        users = User.query().fetch()
+        #users = sorted(users, key=lambda x: x.score,
+         #              reverse=True)
         return UserForms(items=[user.to_form() for user in users])
 
     @endpoints.method(request_message=NEW_GAME_REQUEST,
@@ -67,27 +62,19 @@ class gameAPI(remote.Service):
                       http_method='POST')
     def new_game(self, request):
         """Creates new game"""
-        playerO = User.query(User.name == request.user_name).get()
-        playerX = User.query(User.name == request.user_name).get()
+
+        playerO = User.query(User.name == request.playerO).get()
+        playerX = User.query(User.name == request.playerX).get()
+
+        # Check if playerX exist
         if not playerX:
             raise endpoints.NotFoundException(
-                    'A User with %s that name does not exist!' % playerX)
+                'A User with %s name does not exist!' % playerX)
+        # Check if playerO exist
         if not playerO:
             raise endpoints.NotFoundException(
-                    'A User with %s that name does not exist!' % playerO)
-        # Check that board size is positive
-        boardDimension = 3
-        if request.boardDimension:
-            if request.boardDimension < 0:
-                raise endpoints.BadRequestException(
-                    'The board size must be positive!')
-            boardDimension = request.boardDimension
-        try:
-            game = Game.new_game(playerX.key, playerO.key, boardDimension)
-
-        except ValueError:
-            raise endpoints.BadRequestException('Maximum active matches is 3!')
-
+                'A User with %s name does not exist!' % playerO)
+        game = Game.new_game(playerX.key, playerO.key)
         return game.to_form()
 
     # This endpoint returns all of a User's active games.
@@ -102,8 +89,7 @@ class gameAPI(remote.Service):
         if not user:
             raise endpoints.BadRequestException('User not found!')
         games = Game.query(ndb.OR(Game.playerX == user.key,
-                                  Game.playerO == user.key)). \
-            filter(Game.game_over is False)
+                                  Game.playerO == user.key))
         return GameForms(items=[game.to_form() for game in games])
 
     # This endpoint allows users to cancel a game in progress.
@@ -137,37 +123,37 @@ class gameAPI(remote.Service):
         if game.game_over:
             raise endpoints.NotFoundException('Game already over')
 
-        user = User.get_user_by_name(request.user_name)
+        user = User.query(User.name == request.user_name).get()
         if user.key != game.hasToMove:
             raise endpoints.BadRequestException('It\'s not your turn!')
         x = True if user.key == game.playerX else False
 
         move = request.move
-        # Verify move is valid
-        size = game.boardDimension * game.boardDimension - 1
-        if move < 0 or move > size:
-            raise endpoints.BadRequestException('Move not valid')
+        board_size = 3
+        if move < 0 or move > 8:
+            raise endpoints.BadRequestException('Invalid move! Must be between'
+                                                '0 and %s ' % 8)
         if game.board[move] != '':
-            raise endpoints.BadRequestException('You cannot move in this cell')
+            raise endpoints.BadRequestException('Invalid move!')
 
         game.board[move] = 'X' if x else 'O'
-        game.history.append(('X' if x else 'O', move))
+        game.historyMoves.append(('X' if x else 'O', move))
         game.hasToMove = game.playerO if x else game.playerX
 
         # Is there a Winner?
-        if lookForWin(game.board, game.boardDimension):
+        winner = lookForWin(game.board, 3)
+        if winner:
             game.end_game(user.key)
         else:
             # Is the board full?
-            if boolFullCurrentBoard(game.board):
+            boolBoardFull  = boolFullCurrentBoard(game.board)
+            if boolBoardFull:
                 # End game tied
                 game.end_game()
-            else:
-                # Remainder email to player
-                taskqueue.add(url='/tasks/send_move_email',
-                              params={'user_key': game.hasToMove.urlsafe(),
-                                      'game_key': game.key.urlsafe()})
+
         game.put()
+        return game.to_form()
+
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,
@@ -179,7 +165,7 @@ class gameAPI(remote.Service):
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if not game:
             raise endpoints.NotFoundException('Game not found')
-        return StringMessage(message=str(game.history))
+        return StringMessage(message=str(game.historyMoves))
 
     @endpoints.method(response_message=ScoreForms,
                       path='scores',

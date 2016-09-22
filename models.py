@@ -20,9 +20,8 @@ class User(ndb.Model):
     @property
     def score(self):
         """User points"""
-        return (self.wins-self.los)/total_matches_played
+        return self.wins*3+self.ties
 
-    @classmethod
     def to_form(self):
         return UserForm(name=self.name,
                         email=self.email,
@@ -40,17 +39,17 @@ class User(ndb.Model):
     def addWin(self):
         """Add a win"""
         self.wins += 1
-        self.put()
+        self.updateMatchesPlayed()
+
 
     def addTie(self):
         """Add a tie"""
         self.ties += 1
-        self.put()
+        self.updateMatchesPlayed()
 
     def addLoss(self):
         """Add a loss """
-        self.los += 1
-        self.put()
+        self.updateMatchesPlayed()
 
 
 class Game(ndb.Model):
@@ -67,19 +66,19 @@ class Game(ndb.Model):
 
     @classmethod
     # def new_game(cls, user, min, max, attempts):
-    def new_game(cls, playerX, playerO, boardDimension=3):
+    def new_game(cls, playerX, playerO):
         """Creates and returns a new game"""
         game = Game(playerX=playerX,
                     playerO=playerO,
                     hasToMove=playerX)
 
-        game.board = ['' for _ in range(boardDimension*boardDimension)]
+        game.board = ['' for _ in range(3*3)]
         game.historyMoves = []
-        game.boardDimension = boardDimension
+        game.boardDimension = 3
         game.put()
         return game
 
-    def to_form(self, message):
+    def to_form(self):
         """Returns a GameForm representation of the Game"""
         gameform = GameForm(urlsafe_key=self.key.urlsafe(),
                             board=str(self.board),
@@ -95,39 +94,31 @@ class Game(ndb.Model):
         return gameform
 
     def end_game(self, winner=None):
-        """Ends the game - if won is True, the player won. - if won is False,
-        the player lost."""
-
-        # update game details
+        """Ends the game"""
         self.game_over = True
         if winner:
             self.winner = winner
         else:
             self.tie = True
-
         self.put()
 
-        # Create variable result and update the user models
-        if winner == self.playerX:
-            # create variable result for Score entity
-            result = 'playerX'
-            # add a los to the loser,a win to the winner or tie
-            playerO.get().add_loss()
-            winner.get().add_win
-
-        elif winner == self.playerO:
-            result = 'playerO'
-            playerX.get().add_loss()
-            winner.get().add_win
-
+        if winner:
+            result = 'playerX' if winner == self.playerX else 'playerO'
         else:
             result = 'tie'
-            self.playerX.get().add_tie()
-            self.playerO.get().add_tie()
-
         # Add the game to the score 'board'
         score = Score(date=date.today(), playerX=self.playerX,
                       playerO=self.playerO, result=result)
+        score.put()
+
+        # Update the user models
+        if winner:
+            winner.get().addWin()
+            loser = self.playerX if winner == self.playerO else self.playerO
+            loser.get().addLoss
+        else:
+            self.playerX.get().addTie()
+            self.playerO.get().addTie()
 
 
 class Score(ndb.Model):
@@ -139,8 +130,8 @@ class Score(ndb.Model):
 
     def to_form(self):
         return ScoreForm(date=str(self.date),
-                         playerX=self.user_x.get().name,
-                         playerO=self.user_o.get().name,
+                         playerX=self.playerX.get().name,
+                         playerO=self.playerO.get().name,
                          result=self.result)
 
 
@@ -161,8 +152,6 @@ class NewGameForm(messages.Message):
     """Used to create a new game"""
     playerX = messages.StringField(1, required=True)
     playerO = messages.StringField(2, required=True)
-    boardDimension = messages.IntegerField(3)
-
 
 class MakeMoveForm(messages.Message):
     """Used to make a move in an existing game"""
@@ -201,6 +190,7 @@ class UserForm(messages.Message):
     ties = messages.IntegerField(4, required=True)
     los = messages.IntegerField(5, required=True)
     matches_played = messages.IntegerField(6, required=True)
+    score = messages.IntegerField(7)
 
 
 class UserForms(messages.Message):

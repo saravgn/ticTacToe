@@ -1,0 +1,18 @@
+Sara Vagnarelli
+Tic-Tac-Toe Project
+
+General
+
+* I chosen to give 3 points for win and 1 point for draw.
+* Is sent an email to the users that have an incomplete game every 24 hours.
+* I choose as initial implementation a 3*3 board size by default.
+* The variable game_over denotes a completed Tic Tac Toe match.
+
+What additional properties did you add to your models and why?
+
+* I modified reminder emails that only send emails to users who have a game actives every 24 hours.
+* In order to manage the hisory of a match I record all the players moves using the pickle property history in the Game.
+
+What were some of the trade-offs or struggles you faced when implementing the new game logic?
+
+* It has been difficult at the beginning to manage all the features for a correct use of Google App Engine, also after having done the previous projects on the same platform.

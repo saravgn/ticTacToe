@@ -144,6 +144,14 @@ The game can also be played on larger grids, such as 10x10 or even 20x20. For an
 - **StringMessage**
     - General purpose String container.
 
+
+### Score-Keeping
+-----------------------------------
+
+* 3  Points for a Win
+* 1  Points for a Tie
+
+
 ### Citations
 -----------------------------------
 Udacity forums and StackOverflow forums.

@@ -14,17 +14,18 @@ from utils import get_by_urlsafe
 class SendReminderEmail(webapp2.RequestHandler):
     def get(self):
         """Reminder to users with incomplete games"""
-        users = User.query(User.email is not None)
+        users = User.query(User.email != None)
         for user in users:
             games = Game.query(ndb.OR(Game.playerX == user.key,
                                       Game.playerO == user.key)). \
-                                      filter(Game.game_over is False)
+                            filter(Game.game_over == False)
             if games.count() > 0:
-                subject = 'Reminder!'
-                body = 'Hello {}, we advice you about the {} games, which are still in progress. The projects are: {}'. \  # noqa
-                format(user.name, games.count(),  # noqa
-                        ', '.join(game.key.urlsafe() for game in games))  # noqa
-                logging.debug(body)
+                subject = 'This is a reminder!'
+                body = 'Hello {}, this email is for advice you about the '\
+                       'games that are in progress. ' \
+                       'You have {} games incompleted.' \
+                       'The games keys are: {}'.format(user.name, games.count(),
+                                                  ', '.join(game.key.urlsafe() for game in games))
                 # This will send test emails, the arguments to send_mail are:
                 # from, to, subject, body
                 mail.send_mail('noreply@{}.appspotmail.com'.
