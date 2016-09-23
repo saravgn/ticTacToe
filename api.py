@@ -51,8 +51,8 @@ class gameAPI(remote.Service):
     def get_user_rankings(self, request):
         """Return all Users ranked by points"""
         users = User.query().fetch()
-        #users = sorted(users, key=lambda x: x.score,
-         #              reverse=True)
+        users = sorted(users, key=lambda x: x.score,
+                       reverse=True)
         return UserForms(items=[user.to_form() for user in users])
 
     @endpoints.method(request_message=NEW_GAME_REQUEST,
@@ -90,6 +90,7 @@ class gameAPI(remote.Service):
             raise endpoints.BadRequestException('User not found!')
         games = Game.query(ndb.OR(Game.playerX == user.key,
                                   Game.playerO == user.key))
+        games = games.filter(Game.game_over == False)
         return GameForms(items=[game.to_form() for game in games])
 
     # This endpoint allows users to cancel a game in progress.
@@ -144,6 +145,7 @@ class gameAPI(remote.Service):
         winner = lookForWin(game.board, 3)
         if winner:
             game.end_game(user.key)
+            game.historyMoves.append(('game_over-winner:',winner))
         else:
             # Is the board full?
             boolBoardFull  = boolFullCurrentBoard(game.board)

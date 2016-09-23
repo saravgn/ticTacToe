@@ -17,6 +17,26 @@ class User(ndb.Model):
     los = ndb.IntegerProperty(default=0)
     matches_played = ndb.IntegerProperty(default=0)
 
+    def updateMatchesPlayed(self):
+        """Updates the value of the matches played by the user"""
+        self.matches_played += 1
+        self.put()
+
+    def addWin(self):
+        """Add a win"""
+        self.wins += 1
+        self.updateMatchesPlayed()
+
+    def addTie(self):
+        """Add a tie"""
+        self.ties += 1
+        self.updateMatchesPlayed()
+
+    def addLoss(self):
+        """Add a loss """
+        self.los += 1
+        self.updateMatchesPlayed()
+
     @property
     def score(self):
         """User points"""
@@ -31,25 +51,7 @@ class User(ndb.Model):
                         matches_played=self.matches_played,
                         score=self.score)
 
-    def updateMatchesPlayed(self):
-        """Updates the value of the matches played by the user"""
-        self.matches_played += 1
-        self.put()
-
-    def addWin(self):
-        """Add a win"""
-        self.wins += 1
-        self.updateMatchesPlayed()
-
-
-    def addTie(self):
-        """Add a tie"""
-        self.ties += 1
-        self.updateMatchesPlayed()
-
-    def addLoss(self):
-        """Add a loss """
-        self.updateMatchesPlayed()
+    
 
 
 class Game(ndb.Model):
@@ -89,6 +91,9 @@ class Game(ndb.Model):
                             game_over=self.game_over)
         if self.winner:
             gameform.winner = self.winner.get().name
+
+            gameform.loser = self.loser.get().name
+        
         if self.tie:
             gameform.tie = self.tie
         return gameform
@@ -115,7 +120,14 @@ class Game(ndb.Model):
         if winner:
             winner.get().addWin()
             loser = self.playerX if winner == self.playerO else self.playerO
-            loser.get().addLoss
+
+            loser.get().addLoss()
+
+            self.loser = loser
+            self.put()
+            
+
+
         else:
             self.playerX.get().addTie()
             self.playerO.get().addTie()
@@ -146,6 +158,7 @@ class GameForm(messages.Message):
     game_over = messages.BooleanField(7, required=True)
     winner = messages.StringField(8)
     tie = messages.BooleanField(9)
+    loser = messages.StringField(10)
 
 
 class NewGameForm(messages.Message):
