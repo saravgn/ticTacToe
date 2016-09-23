@@ -51,8 +51,6 @@ class User(ndb.Model):
                         matches_played=self.matches_played,
                         score=self.score)
 
-    
-
 
 class Game(ndb.Model):
     """Game object"""
@@ -93,7 +91,7 @@ class Game(ndb.Model):
             gameform.winner = self.winner.get().name
 
             gameform.loser = self.loser.get().name
-        
+
         if self.tie:
             gameform.tie = self.tie
         return gameform
@@ -125,9 +123,6 @@ class Game(ndb.Model):
 
             self.loser = loser
             self.put()
-            
-
-
         else:
             self.playerX.get().addTie()
             self.playerO.get().addTie()
@@ -165,6 +160,7 @@ class NewGameForm(messages.Message):
     """Used to create a new game"""
     playerX = messages.StringField(1, required=True)
     playerO = messages.StringField(2, required=True)
+
 
 class MakeMoveForm(messages.Message):
     """Used to make a move in an existing game"""

@@ -130,8 +130,9 @@ class gameAPI(remote.Service):
         x = True if user.key == game.playerX else False
 
         move = request.move
-        board_size = 3
-        if move < 0 or move > 8:
+        # board_size = 3
+        # if move < 0 or move > 8:
+        if move not in range(9):
             raise endpoints.BadRequestException('Invalid move! Must be between'
                                                 '0 and %s ' % 8)
         if game.board[move] != '':
@@ -145,17 +146,16 @@ class gameAPI(remote.Service):
         winner = lookForWin(game.board, 3)
         if winner:
             game.end_game(user.key)
-            game.historyMoves.append(('game_over-winner:',winner))
+            game.historyMoves.append(('game_over-winner:', winner))
         else:
             # Is the board full?
-            boolBoardFull  = boolFullCurrentBoard(game.board)
+            boolBoardFull = boolFullCurrentBoard(game.board)
             if boolBoardFull:
                 # End game tied
                 game.end_game()
 
         game.put()
         return game.to_form()
-
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,
